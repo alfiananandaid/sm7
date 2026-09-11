@@ -1,16 +1,17 @@
 {
-  "name": "Stock Opname Mandiri",
+  "name": "STOCK OPNAME MANDIRI",
   "short_name": "SO Mandiri",
+  "description": "Aplikasi Stock Opname Modern Offline-First iOS Style",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#F2F2F7",
-  "theme_color": "#FFFFFF",
+  "background_color": "#f2f2f7",
+  "theme_color": "#ffffff",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/3144/3144456.png",
+      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='120' fill='%23007aff'/><path d='M150 150h40v212h-40zm70 0h20v212h-20zm50 0h50v212h-50zm70 0h20v212h-20zm40 0h30v212h-30z' fill='%23ffffff'/></svg>",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/svg+xml"
     }
   ]
 }
- 
