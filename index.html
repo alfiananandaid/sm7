@@ -2,308 +2,185 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>STOCK OPNAME MANDIRI</title>
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stock Opname Mandiri</title>
+  <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#f2f2f7">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  
-  <link rel="stylesheet" href="styles.css">
-  
-  <!-- Barcode Scanner Libraries -->
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
+  <meta name="theme-color" content="#FFFFFF">
+
+  <!-- External Libraries -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.10/dist/quagga.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
-  <!-- SPINNER LOADING SCREEN ANIMATED SVG -->
-  <div id="loadingOverlay" class="loading-overlay">
-    <div class="ios-spinner-card">
-      <svg class="ios-spinner" viewBox="0 0 50 50">
-        <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>
-      </svg>
-      <p id="loadingText">Memuat Data System...</p>
-    </div>
-  </div>
+  <div class="app-viewport">
+    <!-- GLASS HEADER -->
+    <header class="ios-header">
+      <div>
+        <h1 id="page-title">Login</h1>
+        <small id="user-info" style="color: var(--text-secondary); display: none;"></small>
+      </div>
+      <button id="btn-sync" onclick="syncData()" style="display:none; background:none; border:none;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="#007AFF"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+      </button>
+    </header>
 
-  <!-- NETWORK STATUS BAR -->
-  <div id="netStatus" class="net-status online">
-    <span class="dot"></span> <span id="netText">Mode Online</span>
-  </div>
-
-  <div id="appContainer" class="app-container">
-
-    <!-- ==================== LOGIN SCREEN ==================== -->
-    <div id="loginScreen" class="screen active">
-      <div class="login-card">
-        <div class="brand-header">
-          <div class="brand-logo">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-          </div>
-          <h2>STOCK OPNAME</h2>
-          <p>Sistem Inventaris Mandiri Mobile</p>
-        </div>
-
-        <form id="loginForm" onsubmit="app.handleLogin(event)">
-          <div class="input-group">
-            <label>Username</label>
-            <input type="text" id="loginUsername" placeholder="Masukkan username" required autocomplete="username">
-          </div>
-
-          <div class="input-group">
-            <label>Password</label>
-            <div class="password-wrapper">
-              <input type="password" id="loginPassword" placeholder="Min. 6 karakter" required minlength="6">
-              <button type="button" class="eye-btn" onclick="app.togglePassword()">
-                <svg id="eyeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-              </button>
-            </div>
-          </div>
-
-          <button type="submit" class="btn-primary">Masuk Aplikasi</button>
-          
-          <div class="login-footer">
-            <a href="#" onclick="app.showForgotAlert(event)">Lupa Password?</a>
-          </div>
-        </form>
-
-        <!-- INSTALL PWA PROMPT BANNER -->
-        <div id="pwaInstallBanner" class="pwa-install-banner hidden">
-          <div class="pwa-info">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            <div>
-              <strong>Install Aplikasi</strong>
-              <span>Pasang di Layar Utama HP</span>
-            </div>
-          </div>
-          <button class="btn-secondary-sm" onclick="app.installPWA()">Install</button>
+    <!-- SECTION LOGIN -->
+    <section id="sec-login" class="ios-card">
+      <div class="ios-input-group">
+        <label>Username</label>
+        <input type="text" id="login-username" class="ios-input" placeholder="Masukkan username">
+      </div>
+      <div class="ios-input-group">
+        <label>Password (Min 6 Karakter)</label>
+        <div class="ios-input-wrapper">
+          <input type="password" id="login-password" class="ios-input" placeholder="••••••••">
+          <span onclick="togglePasswordVisibility()" style="position: absolute; right: 12px; cursor: pointer;">👁️</span>
         </div>
       </div>
-    </div>
+      <button class="ios-btn ios-btn-primary" onclick="login()">Masuk Application</button>
+      <p style="text-align: center; margin-top: 12px;">
+        <a href="#" onclick="alert('Hubungi Admin untuk reset password')" style="color: var(--primary); font-size: 13px; text-decoration: none;">Lupa Password?</a>
+      </p>
+      
+      <div id="pwa-install-container" style="margin-top: 20px; display: none;">
+        <button class="ios-btn ios-btn-secondary" id="btn-install-pwa">📱 Install ke HP (Android / iOS)</button>
+      </div>
+    </section>
 
-    <!-- ==================== MAIN DASHBOARD SCREEN ==================== -->
-    <div id="dashboardScreen" class="screen">
-      <!-- HEADER BAR -->
-      <header class="ios-header">
-        <div class="user-badge">
-          <span class="avatar-circle" id="userInitial">A</span>
-          <div>
-            <h4 id="displayStaffName">Staff Name</h4>
-            <span class="role-tag" id="displayRole">ROLE</span>
-          </div>
+    <!-- SECTION MENU SO (STOCK OPNAME) -->
+    <section id="sec-so" class="ios-card" style="display: none;">
+      <div class="ios-input-group">
+        <label>Lokasi Stock Opname</label>
+        <div style="display: flex; gap: 8px;">
+          <select id="so-lokasi" class="ios-input"></select>
+          <button class="ios-btn ios-btn-secondary" style="width: auto;" onclick="openLocationModal()">+</button>
         </div>
-        <button class="btn-icon" onclick="app.logout()">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-        </button>
-      </header>
-
-      <!-- TAB NAVIGATION MENU -->
-      <nav class="ios-tab-bar">
-        <button class="tab-item active" onclick="app.switchTab('tabSO')">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7"></path><rect x="1" y="3" width="22" height="4" rx="1"></rect><path d="M10 12h4"></path></svg>
-          <span>SO</span>
-        </button>
-        <button class="tab-item" onclick="app.switchTab('tabHistory')">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          <span>History</span>
-        </button>
-        <button class="tab-item admin-only hidden" onclick="app.switchTab('tabApproval')">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-          <span>Approval</span>
-        </button>
-        <button class="tab-item admin-only hidden" onclick="app.switchTab('tabLogs')">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-          <span>Logs</span>
-        </button>
-      </nav>
-
-      <!-- TAB CONTENT AREA -->
-      <main class="content-area">
-
-        <!-- 1. TAB STOCK OPNAME -->
-        <section id="tabSO" class="tab-content active">
-          
-          <!-- LOKASI SECTION -->
-          <div class="ios-card">
-            <div class="card-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-              <span>1. PILIH / TAMBAH LOKASI</span>
-            </div>
-            
-            <div class="location-select-box">
-              <select id="selectLokasi" onchange="app.onLocationChange()">
-                <option value="">-- Pilih Lokasi --</option>
-              </select>
-              <button class="btn-icon-sq" onclick="app.openModal('modalAddLokasi')">+</button>
-              <button class="btn-icon-sq danger" onclick="app.requestDeleteLokasi()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- SCANNER & SCAN RESULT SECTION -->
-          <div class="ios-card">
-            <div class="card-title-between">
-              <div class="card-title">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M7 7h10M7 12h10M7 17h10"></path></svg>
-                <span>2. SCAN / INPUT BARCODE</span>
-              </div>
-              <select id="scannerEngine" class="select-sm" onchange="app.changeScannerEngine()">
-                <option value="html5">Html5Qrcode</option>
-                <option value="quagga">QuaggaJS</option>
-              </select>
-            </div>
-
-            <div class="barcode-input-box">
-              <input type="text" id="inputBarcode" placeholder="Scan / ketik Kode UPC..." onkeyup="if(e.key==='Enter') app.searchBarcodeMaster()">
-              <button class="btn-secondary" onclick="app.toggleCameraScanner()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                Camera
-              </button>
-            </div>
-
-            <!-- CAMERA SCANNER OVERLAY CONTAINER -->
-            <div id="scannerContainer" class="scanner-wrapper hidden">
-              <div id="reader"></div>
-              <div class="scanner-controls">
-                <button type="button" class="btn-torch" onclick="app.toggleTorch()">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                  Senter
-                </button>
-                <button type="button" class="btn-close-scan" onclick="app.stopCameraScanner()">Tutup</button>
-              </div>
-              <div class="focus-target-ring"></div>
-            </div>
-
-            <!-- RESULT PRODUCT CARD -->
-            <div id="productResultCard" class="product-result-card hidden">
-              <div class="res-row"><span>Kode UPC:</span> <strong id="resUPC">-</strong></div>
-              <div class="res-row"><span>Deskripsi:</span> <strong id="resDeskripsi">-</strong></div>
-              <div class="res-row"><span>Department:</span> <span id="resDept">-</span></div>
-              <div class="res-row"><span>Vendor:</span> <span id="resVendor">-</span></div>
-              <div id="rowQtySystem" class="res-row highlight">
-                <span>Qty System:</span> <strong id="resQtySystem">0</strong>
-              </div>
-            </div>
-          </div>
-
-          <!-- INPUT QTY & KETERANGAN -->
-          <div class="ios-card">
-            <div class="card-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-              <span>3 & 4. QTY & KETERANGAN</span>
-            </div>
-
-            <div class="input-group">
-              <label>Qty Fisik SO *</label>
-              <input type="number" id="inputQtySO" placeholder="0" min="1" required>
-            </div>
-
-            <div class="input-group">
-              <label>Keterangan (Opsional)</label>
-              <input type="text" id="inputKeterangan" placeholder="Contoh: Barcode rusak / rak A">
-            </div>
-
-            <button class="btn-success" onclick="app.validateAndSaveSO()">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-              Simpan Data SO
-            </button>
-          </div>
-
-          <!-- SCAN HISTORY LIST FOR UPC -->
-          <div class="ios-card">
-            <div class="card-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2"><polyline points="12 8 12 12 14 14"></polyline><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"></path></svg>
-              <span>5. RIWAYAT UPC DI LOKASI INI</span>
-            </div>
-            <div id="upcHistoryList" class="history-list">
-              <p class="empty-state">Belum ada scan untuk UPC di lokasi ini.</p>
-            </div>
-          </div>
-
-        </section>
-
-        <!-- 2. TAB HISTORY SCAN (ALL) -->
-        <section id="tabHistory" class="tab-content">
-          <div class="ios-card">
-            <h3>Riwayat Scan SO Terakhir</h3>
-            <div id="globalHistoryList" class="history-list"></div>
-          </div>
-        </section>
-
-        <!-- 3. TAB APPROVAL (ADMIN) -->
-        <section id="tabApproval" class="tab-content">
-          <div class="ios-card">
-            <h3>Daftar Permintaan Approval</h3>
-            <div id="approvalList" class="approval-list"></div>
-          </div>
-        </section>
-
-        <!-- 4. TAB LOGS (ADMIN) -->
-        <section id="tabLogs" class="tab-content">
-          <div class="ios-card">
-            <h3>System Logs</h3>
-            <div id="logsList" class="logs-list"></div>
-          </div>
-        </section>
-
-      </main>
-    </div>
-
-  </div>
-
-  <!-- ==================== MODERN IOS MODAL POPUPS ==================== -->
-  
-  <!-- MODAL: ADD LOKASI -->
-  <div id="modalAddLokasi" class="modal-backdrop">
-    <div class="modal-card">
-      <h3>Tambah Lokasi Baru</h3>
-      <div class="input-group">
-        <label>Nama Lokasi *</label>
-        <input type="text" id="newNamaLokasi" placeholder="Contoh: RAK-A1-02">
       </div>
-      <div class="input-group">
-        <label>Keterangan</label>
-        <input type="text" id="newKetLokasi" placeholder="Area Depan">
+
+      <div class="ios-input-group">
+        <label>Scan / Input Barcode</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="so-barcode" class="ios-input" placeholder="Scan/Input UPC/Artikel" onchange="lookupBarcode()">
+          <button class="ios-btn ios-btn-primary" style="width: 50px;" onclick="openScanner()">📷</button>
+        </div>
       </div>
-      <div class="modal-actions">
-        <button class="btn-secondary" onclick="app.closeModal('modalAddLokasi')">Batal</button>
-        <button class="btn-primary" onclick="app.saveNewLokasi()">Simpan</button>
+
+      <!-- SCANNER MODAL / VIEW -->
+      <div id="scanner-wrapper" style="display: none; margin-bottom: 14px;">
+        <div id="scanner-container">
+          <div class="scanner-focus-crosshair"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+          <select id="scanner-engine" class="ios-input" style="width: 60%;" onchange="switchScannerEngine()">
+            <option value="html5qr">Html5Qrcode Engine</option>
+            <option value="quagga">QuaggaJS Engine</option>
+          </select>
+          <button class="ios-btn ios-btn-secondary" style="width: 35%;" onclick="toggleFlashlight()">🔦 Senter</button>
+        </div>
+      </div>
+
+      <!-- DETIL PRODUCT (AUTO POPULATE) -->
+      <div id="product-details" style="background: #F9F9FB; padding: 12px; border-radius: 12px; margin-bottom: 14px; font-size: 13px;">
+        <div><b>Deskripsi:</b> <span id="so-deskripsi">-</span></div>
+        <div><b>Dept:</b> <span id="so-dept">-</span> | <b>Vendor:</b> <span id="so-vendor">-</span></div>
+        <div id="qty-system-container"><b>Qty System:</b> <span id="so-qty-system" style="color: var(--primary); font-weight: bold;">-</span></div>
+      </div>
+
+      <div class="ios-input-group">
+        <label>Qty Fisik SO *</label>
+        <input type="number" id="so-qty" class="ios-input" placeholder="0">
+      </div>
+
+      <div class="ios-input-group">
+        <label>Keterangan (Opsional)</label>
+        <input type="text" id="so-ket" class="ios-input" placeholder="Contoh: Barang Rusak/Dus Terbuka">
+      </div>
+
+      <button class="ios-btn ios-btn-primary" onclick="saveSO()">Simpan Data SO</button>
+
+      <!-- HISTORY ITEM -->
+      <div style="margin-top: 18px;">
+        <label style="font-size: 12px; color: var(--text-secondary); font-weight: bold;">HISTORY SCAN BARCODE INI</label>
+        <div id="so-history-list" style="margin-top: 8px; font-size: 12px;"></div>
+      </div>
+    </section>
+
+    <!-- SECTION VERIFIKASI -->
+    <section id="sec-verifikasi" class="ios-card" style="display: none;">
+      <div class="ios-input-group">
+        <input type="text" id="verif-search" class="ios-input" placeholder="Cari Dept / SKU / Lokasi..." oninput="renderVerifikasiList()">
+      </div>
+      <div id="verif-list"></div>
+    </section>
+
+    <!-- SECTION REPORT -->
+    <section id="sec-report" class="ios-card" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3>Ringkasan SO</h3>
+        <button class="ios-btn ios-btn-secondary" style="width: auto; padding: 6px 12px;" onclick="exportToExcel()">📊 Excel</button>
+      </div>
+      <div id="report-summary"></div>
+    </section>
+
+    <!-- SECTION ADMIN PANEL -->
+    <section id="sec-admin" class="ios-card" style="display: none;">
+      <h3>Admin Dashboard</h3>
+      <div style="margin: 12px 0;">
+        <label><input type="checkbox" id="toggle-qty-sys" onchange="toggleQtySystemSetting(this.checked)"> Tampilkan Qty System ke Staff</label>
+      </div>
+      <hr style="border: 0.5px solid var(--border-color); margin: 12px 0;">
+      <h4>Kelola User</h4>
+      <div class="ios-input-group" style="margin-top: 8px;">
+        <input type="text" id="admin-user-name" class="ios-input" placeholder="Nama Staff">
+        <input type="text" id="admin-user-uname" class="ios-input" placeholder="Username" style="margin-top: 6px;">
+        <input type="password" id="admin-user-pass" class="ios-input" placeholder="Password" style="margin-top: 6px;">
+        <select id="admin-user-role" class="ios-input" style="margin-top: 6px;">
+          <option value="staff">Staff</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button class="ios-btn ios-btn-primary" style="margin-top: 8px;" onclick="addAdminUser()">+ Tambah User</button>
+      </div>
+    </section>
+
+    <!-- BOTTOM NAVIGATION BAR -->
+    <nav class="ios-nav" id="app-nav" style="display: none;">
+      <div class="nav-item active" onclick="switchTab('so')">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+        <span>SO</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('verifikasi')">
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        <span>Verifikasi</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('report')">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+        <span>Report</span>
+      </div>
+      <div class="nav-item admin-only" onclick="switchTab('admin')" style="display: none;">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        <span>Admin</span>
+      </div>
+      <div class="nav-item" onclick="logout()">
+        <svg viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+        <span>Keluar</span>
+      </div>
+    </nav>
+
+    <!-- MODAL DUPLICATE OVERWRITE / ADD -->
+    <div class="modal-overlay" id="modal-duplicate">
+      <div class="modal-card">
+        <h3>Item Sudah Pernah Scanned!</h3>
+        <p style="font-size: 13px; color: var(--text-secondary); margin: 8px 0;" id="dup-msg"></p>
+        <div style="display: flex; gap: 8px; margin-top: 14px;">
+          <button class="ios-btn ios-btn-primary" onclick="confirmDuplicateAction('replace')">Replace (Timpa)</button>
+          <button class="ios-btn ios-btn-secondary" onclick="confirmDuplicateAction('add')">Add (Tambah Qty)</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- MODAL: DUPLICATE WARNING (REPLACE / ADD / CANCEL) -->
-  <div id="modalDuplicate" class="modal-backdrop">
-    <div class="modal-card">
-      <div class="warning-icon">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ff9500" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-      </div>
-      <h3>Data Sudah Ada di Lokasi Ini</h3>
-      <p id="dupMessage">Barang ini sudah pernah di-scan di lokasi ini. Pilih aksi:</p>
-      <div class="modal-actions-col">
-        <button class="btn-warning" onclick="app.confirmSaveSO('REPLACE')">Timpa Data (Replace)</button>
-        <button class="btn-primary" onclick="app.confirmSaveSO('ADD')">Tambahkan Qty (Add)</button>
-        <button class="btn-secondary" onclick="app.closeModal('modalDuplicate')">Batal / Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: UNREGISTERED BARCODE WARNING -->
-  <div id="modalUnregistered" class="modal-backdrop">
-    <div class="modal-card">
-      <div class="warning-icon danger">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-      </div>
-      <h3>Barcode Tidak Terdaftar!</h3>
-      <p>Barcode ini tidak ditemukan di Master Data. Apakah Anda ingin tetap melanjutkan? Data lain akan diset sebagai UNKNOWN.</p>
-      <div class="modal-actions">
-        <button class="btn-secondary" onclick="app.closeModal('modalUnregistered')">Cek Ulang</button>
-        <button class="btn-danger" onclick="app.proceedUnregistered()">Lanjutkan</button>
-      </div>
-    </div>
   </div>
 
   <script src="app.js"></script>
