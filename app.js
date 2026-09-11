@@ -1,288 +1,411 @@
-// ==========================================
-// CONFIGURATION & GAS BACKEND URL
-// ==========================================
-// GANTI DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA
-const GAS_API_URL = "https://script.google.com/macros/s/AKfycbw7SKrL5MWJqHBo4K0uCKdjXVVYQMAY9vbptdO3JSHffGKHGI4WkOLmS3tQqP4i-ReNBw/exec";
+// GANTI URL INI DENGAN GAS WEB APP URL SETELAH DEPLOYMENT
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbw0ZBoW8asZnFlsEIrJS90I9dkxdsf7AF3O2pEspMYdY23PqlMqgo2kx4KVUQ_tZV3Scg/exec"; 
 
 let currentUser = null;
-let dbMaster = [];
-let dbLokasi = [];
-let dbStockSystem = [];
-let dbSO = [];
-let localOfflineQueue = JSON.parse(localStorage.getItem("so_offline_queue") || "[]");
-let html5QrCodeEngine = null;
-let pendingSOItem = null;
+let masterDataCache = [];
+let locationCache = [];
+let html5QrScanner = null;
+let selectedBarcodeData = null;
+let pendingSoPayload = null;
 
-// Auto-Logout Timer (12 Jam)
-const AUTO_LOGOUT_TIME = 12 * 60 * 60 * 1000;
+// BRUTE FORCE LOCKOUT VARIABLES
+let failedAttempts = 0;
+let lockoutEndTime = 0;
+let lockoutTimerInterval = null;
 
+// INITIALIZATION
 document.addEventListener("DOMContentLoaded", () => {
+  initPWA();
+  initDB();
+  setupEventListeners();
   checkSession();
-  initPWAInstall();
 });
 
-// ==========================================
-// PWA INSTALLATION PROMPT
-// ==========================================
-let deferredPrompt;
-function initPWAInstall() {
+// PWA SERVICE WORKER REGISTRATION
+function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js');
+    navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Fail:', err));
   }
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    document.getElementById('pwa-install-container').style.display = 'block';
-  });
-  document.getElementById('btn-install-pwa')?.addEventListener('click', () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+}
+
+// INDEXEDDB FOR OFFLINE SYNC QUEUE
+let db;
+function initDB() {
+  const req = indexedDB.open("StockOpnameDB", 1);
+  req.onupgradeneeded = (e) => {
+    db = e.target.result;
+    if (!db.objectStoreNames.contains("offlineQueue")) {
+      db.createObjectStore("offlineQueue", { keyPath: "id" });
     }
+  };
+  req.onsuccess = (e) => { db = e.target.result; };
+}
+
+// EVENT LISTENERS SETUP
+function setupEventListeners() {
+  // Login Form
+  document.getElementById("loginForm").addEventListener("submit", handleLoginSubmit);
+  document.getElementById("togglePasswordBtn").addEventListener("click", togglePasswordVisibility);
+  document.getElementById("btnLogout").addEventListener("click", handleLogout);
+
+  // Navigation Tabs
+  document.querySelectorAll(".nav-tab").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+      
+      e.target.classList.add("active");
+      document.getElementById(e.target.dataset.tab).classList.add("active");
+    });
   });
+
+  // SO Controls
+  document.getElementById("inputBarcode").addEventListener("input", handleBarcodeSearch);
+  document.getElementById("btnSaveSo").addEventListener("click", handleSaveSoClick);
+  document.getElementById("btnAddLocation").addEventListener("click", handleAddLocationPrompt);
+  document.getElementById("btnDeleteLocation").addEventListener("click", handleDeleteLocationClick);
+
+  // Scanner Modal
+  document.getElementById("btnOpenScanner").addEventListener("click", openScanner);
+  document.getElementById("btnCloseScanner").addEventListener("click", closeScanner);
+
+  // Duplicate Dialog Actions
+  document.getElementById("btnDupReplace").addEventListener("click", () => processSaveSo("REPLACE"));
+  document.getElementById("btnDupAdd").addEventListener("click", () => processSaveSo("ADD"));
+  document.getElementById("btnDupCancel").addEventListener("click", () => {
+    document.getElementById("modalDuplicate").classList.add("hidden");
+  });
+
+  // Network Sync Listener
+  window.addEventListener('online', syncOfflineQueue);
 }
 
-// ==========================================
-// AUTH & LOGIN LOGIC
-// ==========================================
-function togglePasswordVisibility() {
-  const p = document.getElementById("login-password");
-  p.type = p.type === "password" ? "text" : "password";
+// BRUTE-FORCE LOCKOUT ALGORITHM
+function handleLoginSubmit(e) {
+  e.preventDefault();
+
+  if (Date.now() < lockoutEndTime) return;
+
+  const username = document.getElementById("loginUsername").value.trim();
+  const password = document.getElementById("loginPassword").value;
+
+  showLoading(true, "Memverifikasi Akun...");
+
+  fetchAPI("login", { username, password })
+    .then(res => {
+      showLoading(false);
+      if (res.status === "SUCCESS") {
+        failedAttempts = 0;
+        currentUser = res.user;
+        saveSession(currentUser);
+        initAppUI();
+      } else {
+        failedAttempts++;
+        if (failedAttempts % 6 === 0) {
+          const lockMinutes = (failedAttempts / 6) * 10;
+          lockoutEndTime = Date.now() + (lockMinutes * 60 * 1000);
+          startLockoutTimer();
+        } else {
+          alert(res.message + ` (${6 - (failedAttempts % 6)} percobaan tersisa)`);
+        }
+      }
+    })
+    .catch(() => {
+      showLoading(false);
+      alert("Gagal terhubung ke server. Memeriksa mode offline...");
+    });
 }
 
-async function login() {
-  const u = document.getElementById("login-username").value.trim();
-  const p = document.getElementById("login-password").value.trim();
+function startLockoutTimer() {
+  const alertBox = document.getElementById("lockoutAlert");
+  const timerSpan = document.getElementById("lockoutTimer");
+  alertBox.classList.remove("hidden");
+  document.getElementById("btnLogin").disabled = true;
 
-  if (!u || p.length < 6) {
-    alert("Username dan Password (min 6 kar) wajib diisi!");
-    return;
-  }
-
-  try {
-    const res = await fetch(GAS_API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "login", username: u, password: p })
-    }).then(r => r.json());
-
-    if (res.status === "success") {
-      currentUser = res.user;
-      localStorage.setItem("so_user_session", JSON.stringify({
-        user: currentUser,
-        loginTime: new Date().getTime()
-      }));
-      initAppSession();
+  lockoutTimerInterval = setInterval(() => {
+    const remainingSec = Math.ceil((lockoutEndTime - Date.now()) / 1000);
+    if (remainingSec <= 0) {
+      clearInterval(lockoutTimerInterval);
+      alertBox.classList.add("hidden");
+      document.getElementById("btnLogin").disabled = false;
     } else {
-      alert(res.message);
+      const m = Math.floor(remainingSec / 60).toString().padStart(2, '0');
+      const s = (remainingSec % 60).toString().padStart(2, '0');
+      timerSpan.textContent = `${m}:${s}`;
     }
-  } catch (err) {
-    alert("Gagal koneksi ke server. Cek internet Anda!");
-  }
+  }, 1000);
+}
+
+function togglePasswordVisibility() {
+  const pwdInput = document.getElementById("loginPassword");
+  pwdInput.type = pwdInput.type === "password" ? "text" : "password";
+}
+
+// SESSION MANAGEMENT (AUTO LOGOUT 12 JAM)
+function saveSession(user) {
+  const sessionData = {
+    user: user,
+    expiry: Date.now() + (12 * 60 * 60 * 1000) // 12 Jam
+  };
+  localStorage.setItem("so_session", JSON.stringify(sessionData));
 }
 
 function checkSession() {
-  const sess = JSON.parse(localStorage.getItem("so_user_session") || "null");
-  if (sess) {
-    const now = new Date().getTime();
-    if (now - sess.loginTime > AUTO_LOGOUT_TIME) {
-      logout();
-    } else {
-      currentUser = sess.user;
-      initAppSession();
+  const raw = localStorage.getItem("so_session");
+  if (raw) {
+    const session = JSON.parse(raw);
+    if (Date.now() < session.expiry) {
+      currentUser = session.user;
+      initAppUI();
+      return;
     }
   }
+  handleLogout();
 }
 
-function logout() {
-  localStorage.removeItem("so_user_session");
-  location.reload();
+function handleLogout() {
+  localStorage.removeItem("so_session");
+  document.getElementById("loginScreen").classList.add("active");
+  document.getElementById("appContainer").classList.add("hidden");
 }
 
-function initAppSession() {
-  document.getElementById("sec-login").style.display = "none";
-  document.getElementById("app-nav").style.display = "flex";
-  document.getElementById("btn-sync").style.display = "block";
-  document.getElementById("user-info").style.display = "block";
-  document.getElementById("user-info").innerText = `${currentUser.nama} (${currentUser.role.toUpperCase()})`;
+// UI INITIALIZATION AFTER LOGIN
+function initAppUI() {
+  document.getElementById("loginScreen").classList.remove("active");
+  document.getElementById("appContainer").classList.remove("hidden");
 
-  if (currentUser.role === "admin") {
-    document.querySelectorAll(".admin-only").forEach(e => e.style.display = "flex");
+  document.getElementById("displayStaffName").textContent = currentUser.nama;
+  document.getElementById("displayUserRole").textContent = currentUser.role;
+
+  if (currentUser.role === "ADMIN") {
+    document.querySelectorAll(".admin-only").forEach(el => el.classList.remove("hidden"));
   }
 
-  fetchInitialData();
-  switchTab("so");
+  loadMasterDataAndLocations();
 }
 
-// ==========================================
-// DATA SYNC ENGINE
-// ==========================================
-async function fetchInitialData() {
-  try {
-    const res = await fetch(GAS_API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "getInitialData" })
-    }).then(r => r.json());
+function loadMasterDataAndLocations() {
+  showLoading(true, "Sinkronisasi Master Data...");
 
-    if (res.status === "success") {
-      dbMaster = res.master;
-      dbLokasi = res.lokasi;
-      dbStockSystem = res.stockSystem;
-      dbSO = res.so;
-      populateLokasiDropdown();
-      if (res.settings.show_qty_system === "false") {
-        document.getElementById("qty-system-container").style.display = "none";
-      }
+  Promise.all([
+    fetchAPI("getMasterData"),
+    fetchAPI("getLocations")
+  ]).then(([masterRes, locRes]) => {
+    showLoading(false);
+    if (masterRes.status === "SUCCESS") masterDataCache = masterRes.data;
+    if (locRes.status === "SUCCESS") {
+      locationCache = locRes.data;
+      renderLocationDropdown();
     }
-  } catch (err) {
-    console.log("Offline mode: Menggunakan data lokal");
-  }
+  }).catch(() => {
+    showLoading(false);
+    showNotification("Mode Offline Aktif");
+  });
 }
 
-function populateLokasiDropdown() {
-  const sel = document.getElementById("so-lokasi");
-  sel.innerHTML = dbLokasi.map(l => `<option value="${l[1]}">${l[1]}</option>`).join("");
-}
-
-// ==========================================
-// STOCK OPNAME SCANNER & INPUT LOGIC
-// ==========================================
-function lookupBarcode() {
-  const bc = document.getElementById("so-barcode").value.trim();
-  if (!bc) return;
-
-  // Search Master
-  const match = dbMaster.find(m => 
-    String(m["Kode UPC"]) === bc || 
-    String(m["Artikel Number"]) === bc || 
-    String(m["Article Manufacturer Part Number"]) === bc
-  );
-
-  if (match) {
-    document.getElementById("so-deskripsi").innerText = match["Deskripsi Produk"];
-    document.getElementById("so-dept").innerText = match["Department"];
-    document.getElementById("so-vendor").innerText = match["Vendor Name"];
-
-    // Search Qty System
-    const sysMatch = dbStockSystem.find(s => String(s[0]) === String(match["Kode UPC"]));
-    document.getElementById("so-qty-system").innerText = sysMatch ? sysMatch[3] : "0";
-  } else {
-    if (confirm("Data TIDAK TERDAFTAR di Master System! Lanjutkan dengan status Unknown?")) {
-      document.getElementById("so-deskripsi").innerText = "UNKNOWN PRODUCT";
-      document.getElementById("so-dept").innerText = "UNKNOWN";
-      document.getElementById("so-vendor").innerText = "UNKNOWN";
-      document.getElementById("so-qty-system").innerText = "0";
+function renderLocationDropdown() {
+  const select = document.getElementById("selectLocation");
+  select.innerHTML = '<option value="">-- Pilih Lokasi --</option>';
+  locationCache.forEach(loc => {
+    if (loc.status === "APPROVED") {
+      select.innerHTML += `<option value="${loc.nama}">${loc.nama}</option>`;
     }
-  }
-  renderBarcodeHistory(bc);
+  });
 }
 
-function saveSO() {
-  const lokasi = document.getElementById("so-lokasi").value;
-  const bc = document.getElementById("so-barcode").value.trim();
-  const qty = parseFloat(document.getElementById("so-qty").value);
-  const ket = document.getElementById("so-ket").value;
+// BARCODE SEARCH & AUTO MATCHING
+function handleBarcodeSearch(e) {
+  const query = e.target.value.trim().toLowerCase();
+  const detailBox = document.getElementById("productDetailCard");
 
-  if (!lokasi || !bc || isNaN(qty)) {
-    alert("Lokasi, Barcode, dan Qty Fisik WAJIB diisi!");
+  if (!query) {
+    detailBox.classList.add("hidden");
+    selectedBarcodeData = null;
     return;
   }
 
-  // Cek Duplikat di Lokasi yang Sama
-  const dup = dbSO.find(s => s[2] === lokasi && String(s[3]) === bc);
-  pendingSOItem = {
-    idSO: "SO-" + Date.now(),
-    timestamp: new Date().toISOString(),
-    lokasi, kodeUPC: bc,
-    deskripsi: document.getElementById("so-deskripsi").innerText,
-    department: document.getElementById("so-dept").innerText,
-    vendorCode: "", vendorName: document.getElementById("so-vendor").innerText,
-    qtySO: qty,
-    qtySystem: document.getElementById("so-qty-system").innerText,
-    keterangan: ket,
-    staffName: currentUser.nama
+  const match = masterDataCache.find(item => 
+    (item.upc && item.upc.toLowerCase() === query) ||
+    (item.artikel && item.artikel.toLowerCase() === query) ||
+    (item.partNum && item.partNum.toLowerCase() === query)
+  );
+
+  detailBox.classList.remove("hidden");
+
+  if (match) {
+    selectedBarcodeData = match;
+    document.getElementById("resDeskripsi").textContent = match.deskripsi;
+    document.getElementById("resDepartment").textContent = match.dept;
+    document.getElementById("resVendor").textContent = match.vendorName;
+    document.getElementById("resQtySystem").textContent = match.qtySystem;
+  } else {
+    selectedBarcodeData = {
+      upc: query,
+      deskripsi: "UNKNOWN",
+      dept: "UNKNOWN",
+      vendorCode: "UNKNOWN",
+      vendorName: "UNKNOWN",
+      qtySystem: 0
+    };
+    document.getElementById("resDeskripsi").textContent = "UNKNOWN (Data Tidak Terdaftar)";
+    document.getElementById("resDepartment").textContent = "-";
+    document.getElementById("resVendor").textContent = "-";
+    document.getElementById("resQtySystem").textContent = "0";
+  }
+}
+
+// SAVE STOCK OPNAME LOGIC
+function handleSaveSoClick() {
+  const lokasi = document.getElementById("selectLocation").value;
+  const barcode = document.getElementById("inputBarcode").value.trim();
+  const qtySo = document.getElementById("inputQtySo").value;
+
+  if (!lokasi || !barcode || !qtySo) {
+    alert("Lokasi, Barcode, dan Qty Opname Wajib Diisi!");
+    return;
+  }
+
+  pendingSoPayload = {
+    lokasi,
+    kodeUpc: selectedBarcodeData ? selectedBarcodeData.upc : barcode,
+    deskripsi: selectedBarcodeData ? selectedBarcodeData.deskripsi : "UNKNOWN",
+    department: selectedBarcodeData ? selectedBarcodeData.dept : "UNKNOWN",
+    vendorCode: selectedBarcodeData ? selectedBarcodeData.vendorCode : "UNKNOWN",
+    vendorName: selectedBarcodeData ? selectedBarcodeData.vendorName : "UNKNOWN",
+    qtySystem: selectedBarcodeData ? selectedBarcodeData.qtySystem : 0,
+    qtySo: Number(qtySo),
+    keterangan: document.getElementById("inputKeterangan").value,
+    username: currentUser.username
   };
 
-  if (dup) {
-    document.getElementById("dup-msg").innerText = `Barcode ${bc} sudah ada di lokasi ${lokasi} dengan Qty: ${dup[8]}.`;
-    document.getElementById("modal-duplicate").classList.add("active");
-  } else {
-    executeSaveSO(pendingSOItem);
-  }
+  // Pengecekan Duplikat
+  processSaveSo("NEW");
 }
 
-function confirmDuplicateAction(type) {
-  document.getElementById("modal-duplicate").classList.remove("active");
-  if (type === "add") {
-    const dup = dbSO.find(s => s[2] === pendingSOItem.lokasi && String(s[3]) === pendingSOItem.kodeUPC);
-    pendingSOItem.qtySO += parseFloat(dup[8]);
-  }
-  executeSaveSO(pendingSOItem);
+function processSaveSo(mode) {
+  pendingSoPayload.mode = mode;
+  showLoading(true, "Menyimpan...");
+
+  fetchAPI("saveStockOpname", pendingSoPayload)
+    .then(res => {
+      showLoading(false);
+      document.getElementById("modalDuplicate").classList.add("hidden");
+      if (res.status === "SUCCESS") {
+        showNotification("Data SO Berhasil Disimpan!");
+        resetSoForm();
+      }
+    })
+    .catch(() => {
+      // OFFLINE FALLBACK
+      showLoading(false);
+      saveToOfflineQueue(pendingSoPayload);
+      document.getElementById("modalDuplicate").classList.add("hidden");
+      showNotification("Tersimpan di Penyimpanan Lokal (Offline Mode)");
+      resetSoForm();
+    });
 }
 
-function executeSaveSO(item) {
-  localOfflineQueue.push(item);
-  localStorage.setItem("so_offline_queue", JSON.stringify(localOfflineQueue));
-  
-  // Clear Input, TAHAN LOKASI SAMA
-  document.getElementById("so-barcode").value = "";
-  document.getElementById("so-qty").value = "";
-  document.getElementById("so-ket").value = "";
-
-  alert("Data SO Tersimpan di HP (Auto-Sync saat Online)!");
-  syncData();
+function resetSoForm() {
+  document.getElementById("inputBarcode").value = "";
+  document.getElementById("inputQtySo").value = "";
+  document.getElementById("inputKeterangan").value = "";
+  document.getElementById("productDetailCard").classList.add("hidden");
 }
 
-async function syncData() {
-  if (!navigator.onLine || localOfflineQueue.length === 0) return;
+// OFFLINE QUEUE MANAGER
+function saveToOfflineQueue(payload) {
+  const tx = db.transaction("offlineQueue", "readwrite");
+  payload.id = "OFFLINE-" + Date.now();
+  tx.objectStore("offlineQueue").add(payload);
+}
 
-  try {
-    const res = await fetch(GAS_API_URL, {
-      method: "POST",
-      body: JSON.stringify({
-        action: "saveSOBatch",
-        username: currentUser.username,
-        staffName: currentUser.nama,
-        items: localOfflineQueue
-      })
-    }).then(r => r.json());
+function syncOfflineQueue() {
+  if (!db) return;
+  const tx = db.transaction("offlineQueue", "readonly");
+  const req = tx.objectStore("offlineQueue").getAll();
 
-    if (res.status === "success") {
-      localOfflineQueue = [];
-      localStorage.setItem("so_offline_queue", JSON.stringify([]));
-      fetchInitialData();
+  req.onsuccess = () => {
+    const items = req.result;
+    if (items.length > 0) {
+      fetchAPI("syncBatchSO", { items }).then(res => {
+        if (res.status === "SUCCESS") {
+          const clearTx = db.transaction("offlineQueue", "readwrite");
+          clearTx.objectStore("offlineQueue").clear();
+          showNotification("Auto Sync Berhasil!");
+        }
+      });
     }
-  } catch (e) {
-    console.log("Gagal sync online");
+  };
+}
+
+// SCANNER ENGINE TOGGLE (HTML5QRCODE / QUAGGA)
+function openScanner() {
+  document.getElementById("scannerModal").classList.remove("hidden");
+  const engine = document.getElementById("scannerEngine").value;
+
+  if (engine === "html5qr") {
+    html5QrScanner = new Html5Qrcode("cameraViewport");
+    html5QrScanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      (decodedText) => {
+        document.getElementById("inputBarcode").value = decodedText;
+        handleBarcodeSearch({ target: { value: decodedText } });
+        closeScanner();
+      }
+    );
   }
 }
 
-// ==========================================
-// UI TAB NAVIGATION
-// ==========================================
-function switchTab(tabName) {
-  document.querySelectorAll("section").forEach(s => s.style.display = "none");
-  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
-  
-  document.getElementById(`sec-${tabName}`).style.display = "block";
-  document.getElementById("page-title").innerText = tabName.toUpperCase();
-
-  if (tabName === "verifikasi") renderVerifikasiList();
-  if (tabName === "report") renderReportSummary();
+function closeScanner() {
+  if (html5QrScanner) {
+    html5QrScanner.stop().then(() => html5QrScanner.clear());
+  }
+  document.getElementById("scannerModal").classList.add("hidden");
 }
 
-function renderBarcodeHistory(bc) {
-  const history = dbSO.filter(s => String(s[3]) === bc);
-  const container = document.getElementById("so-history-list");
-  container.innerHTML = history.map(h => `
-    <div style="background:#FFF; padding:6px; border-radius:6px; margin-bottom:4px; border:1px solid #E5E5EA;">
-      <b>${h[2]}</b> - Qty: ${h[8]} (${new Date(h[1]).toLocaleTimeString()}) by ${h[11]}
-    </div>
-  `).join("") || "Belum ada history.";
+// LOCATION MANAGEMENT
+function handleAddLocationPrompt() {
+  const name = prompt("Masukkan Nama Lokasi Baru:");
+  if (name) {
+    showLoading(true, "Menambahkan Lokasi...");
+    fetchAPI("addLocation", { namaLokasi: name, username: currentUser.username }).then(() => {
+      showLoading(false);
+      loadMasterDataAndLocations();
+    });
+  }
 }
 
-function exportToExcel() {
-  const ws = XLSX.utils.json_to_sheet(dbSO);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Hasil Stock Opname");
-  XLSX.writeFile(wb, `Stock_Opname_${new Date().toISOString().slice(0,10)}.xlsx`);
+function handleDeleteLocationClick() {
+  const locName = document.getElementById("selectLocation").value;
+  if (!locName) return alert("Pilih lokasi yang ingin dihapus!");
+
+  const targetLoc = locationCache.find(l => l.nama === locName);
+  if (targetLoc && confirm(`Yakin ingin mengajukan hapus lokasi ${locName}?`)) {
+    fetchAPI("requestDeleteLocation", { id: targetLoc.id, username: currentUser.username })
+      .then(res => alert(res.message))
+      .then(() => loadMasterDataAndLocations());
+  }
+}
+
+// HELPER REST FETCH ENGINE
+function fetchAPI(action, payload = {}) {
+  return fetch(GAS_API_URL, {
+    method: "POST",
+    body: JSON.stringify({ action, payload })
+  }).then(r => r.json());
+}
+
+function showLoading(show, text = "Memuat...") {
+  const overlay = document.getElementById("loadingOverlay");
+  document.getElementById("loadingText").textContent = text;
+  if (show) overlay.classList.remove("hidden");
+  else overlay.classList.add("hidden");
+}
+
+function showNotification(msg) {
+  const banner = document.getElementById("notificationBanner");
+  document.getElementById("notifMessage").textContent = msg;
+  banner.classList.remove("hidden");
+  setTimeout(() => banner.classList.add("hidden"), 3000);
 }
