@@ -1,35 +1,23 @@
 const CACHE_NAME = 'so-mandiri-v1';
-const ASSETS_TO_CACHE = [
+const urlsToCache = [
   './',
   './index.html',
-  './styles.css',
-  './app.js',
-  './manifest.json',
-  'https://cdn.jsdelivr.net/npm/html5-qrcode/html5-qrcode.min.js',
-  'https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js',
-  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
+  './css/style.css',
+  './js/app.js',
+  './js/db.js',
+  '[https://unpkg.com/html5-qrcode](https://unpkg.com/html5-qrcode)',
+  '[https://cdn.jsdelivr.net/npm/dexie@3.2.3/dist/dexie.js](https://cdn.jsdelivr.net/npm/dexie@3.2.3/dist/dexie.js)'
 ];
 
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
   );
-  self.skipWaiting();
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.map((k) => {
-        if (k !== CACHE_NAME) return caches.delete(k);
-      }))
-    )
-  );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', (e) => {
-  e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
+self.addEventListener('fetch', event => {
+  if (event.request.method === 'POST') return; // Jangan cache API calls
+  event.respondWith(
+    caches.match(event.request).then(response => response || fetch(event.request))
   );
 });
