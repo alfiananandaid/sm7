@@ -1,249 +1,148 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Stock Opname Mandiri</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#f2f2f7">
-  <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode/html5-qrcode.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stock Opname Mandiri</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="[https://unpkg.com/html5-qrcode](https://unpkg.com/html5-qrcode)" type="text/javascript"></script>
+    <script src="[https://cdn.jsdelivr.net/npm/dexie@3.2.3/dist/dexie.js](https://cdn.jsdelivr.net/npm/dexie@3.2.3/dist/dexie.js)"></script>
 </head>
 <body>
-
-  <!-- TOAST NOTIFICATION -->
-  <div id="toastNotification" class="ios-toast hidden">
-    <div class="toast-content">
-      <svg id="toastIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
-      <span id="toastMessage">Pesan...</span>
-    </div>
-  </div>
-
-  <!-- LOGIN SCREEN -->
-  <div id="loginScreen" class="screen active">
-    <div class="login-wrapper">
-      <div class="brand-header">
-        <svg class="app-icon" viewBox="0 0 100 100" fill="none">
-          <rect width="100" height="100" rx="24" fill="#007aff"/>
-          <path d="M30 35H70M30 50H70M30 65H50" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
-        </svg>
-        <h2>SO Mandiri</h2>
-        <p>Enterprise Inventory System</p>
-      </div>
-
-      <form id="loginForm" class="ios-card login-card">
-        <div class="input-group">
-          <input type="text" id="loginUsername" placeholder="Username" required autocomplete="off">
-        </div>
-        <div class="input-group password-group">
-          <input type="password" id="loginPassword" placeholder="Password" minlength="4" required>
-          <button type="button" id="togglePasswordBtn" class="icon-btn-inline">
-            <svg id="eyeIcon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-          </button>
-        </div>
-        <button type="submit" id="btnLogin" class="ios-btn primary-btn">Login ke Sistem</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- MAIN APP CONTAINER -->
-  <div id="appContainer" class="app-container hidden">
-
-    <!-- TOP HEADER -->
-    <header class="ios-navbar">
-      <div class="nav-left">
-        <h1 class="nav-title">Stock Opname</h1>
-        <span class="user-role-badge" id="displayUserRole">STAFF</span>
-      </div>
-      <button id="btnLogout" class="ios-btn-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-          <polyline points="16 17 21 12 16 7"></polyline>
-          <line x1="21" y1="12" x2="9" y2="12"></line>
-        </svg>
-      </button>
-    </header>
-
-    <!-- CONTENT AREA -->
-    <main class="content-area">
-      
-      <!-- TAB 1: OPNAME -->
-      <section id="tabSO" class="tab-content active">
-        <!-- LOKASI CARD -->
-        <div class="ios-card">
-          <label class="section-label">1. Lokasi Barang</label>
-          <div class="smart-input-row">
-            <input type="text" id="inputLokasi" class="ios-input flex-1" placeholder="Cari / Ketik / Scan Lokasi..." autocomplete="off">
-            <button id="btnScanLokasi" type="button" class="ios-btn-icon gray-btn" title="Scan Barcode Lokasi">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h3m13 3V4h-3M4 17v3h3m13-3v3h-3M9 9h6v6H9z"/></svg>
-            </button>
-            <button id="btnAddLocation" type="button" class="ios-btn-icon blue-btn" title="Tambah Lokasi Baru">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            </button>
-          </div>
-          <ul id="lokasiSuggestion" class="autocomplete-list hidden"></ul>
-        </div>
-
-        <!-- BARCODE CARD -->
-        <div class="ios-card">
-          <label class="section-label">2. Barcode Item</label>
-          <div class="smart-input-row">
-            <input type="text" id="inputBarcode" class="ios-input flex-1" placeholder="Scan atau ketik UPC/SKU..." autocomplete="off">
-            <button id="btnOpenScanner" type="button" class="ios-btn-icon blue-btn" title="Scan Barcode Barang">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M8 7h8v10H8z"/></svg>
-            </button>
-          </div>
-          
-          <div id="productDetailCard" class="product-details hidden">
-            <div class="row"><span class="lbl">Deskripsi</span><span id="resDeskripsi" class="val">-</span></div>
-            <div class="row"><span class="lbl">Dept / Brand</span><span id="resDeptVendor" class="val">-</span></div>
-            <div class="row qty-sys"><span class="lbl">Qty System</span><span id="resQtySystem" class="val bold">0</span></div>
-          </div>
-        </div>
-
-        <!-- INPUT QTY & KETERANGAN -->
-        <div class="ios-card">
-          <div class="input-group mb-12">
-            <label class="section-label">3. Qty Opname <span class="req">*</span></label>
-            <input type="number" id="inputQtySo" class="ios-input large-input" placeholder="0" min="1">
-          </div>
-          <div class="input-group mb-12">
-            <label class="section-label">4. Keterangan <span class="opt">(Opsional)</span></label>
-            <input type="text" id="inputKeterangan" class="ios-input" placeholder="Catatan kondisi fisik barang...">
-          </div>
-          <button id="btnSaveSo" type="button" class="ios-btn primary-btn big-btn">Simpan Data (0s Delay)</button>
-        </div>
-      </section>
-
-      <!-- TAB 2: VERIFIKASI -->
-      <section id="tabVerifikasi" class="tab-content">
-        <div class="ios-card">
-          <div class="card-header-split">
-            <h3 class="card-title">Verifikasi Selisih</h3>
-            <button id="btnRefreshVerifikasi" class="ios-btn-icon gray-btn">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-            </button>
-          </div>
-          <div class="table-container">
-            <table class="ios-table">
-              <thead>
-                <tr>
-                  <th>Lokasi</th>
-                  <th>Barcode</th>
-                  <th>Sys</th>
-                  <th>SO</th>
-                  <th>Selisih</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody id="tableVerifikasiBody">
-                <tr><td colspan="6" class="text-center">Memuat data verifikasi...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 3: HISTORY -->
-      <section id="tabHistory" class="tab-content">
-        <div class="ios-card">
-          <div class="card-header-split">
-            <h3 class="card-title">Riwayat Opname</h3>
-            <span id="historyCountBadge" class="badge">0 Item</span>
-          </div>
-          <input type="text" id="searchHistory" class="ios-input mb-12" placeholder="Cari barcode atau lokasi...">
-          <div id="historyListContainer" class="history-list">
-            <!-- Item riwayat dirender secara dinamis via JS -->
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 4: ADMIN -->
-      <section id="tabAdmin" class="tab-content">
-        <div class="ios-card">
-          <h3 class="card-title mb-12">Ringkasan Sistem</h3>
-          <div class="summary-grid">
-            <div class="summary-card">
-              <span class="summary-val" id="statTotalMaster">0</span>
-              <span class="summary-lbl">Data Master</span>
+    <!-- App Container -->
+    <div id="app" class="app-container">
+        <!-- LOGIN VIEW -->
+        <div id="view-login" class="view active">
+            <div class="login-box card-glass">
+                <div class="logo-area">
+                    <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    <h2>Stock Opname</h2>
+                    <p class="subtitle">Enterprise Edition</p>
+                </div>
+                
+                <form id="loginForm">
+                    <div class="input-group">
+                        <input type="text" id="username" placeholder="Username" required>
+                    </div>
+                    <div class="input-group pass-group">
+                        <input type="password" id="password" placeholder="Password (Min. 6 Karakter)" minlength="6" required>
+                        <span id="togglePassword" class="eye-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </span>
+                    </div>
+                    <button type="submit" class="btn-primary" id="btnLogin">Masuk</button>
+                    <a href="#" class="forgot-link">Lupa Password?</a>
+                </form>
+                
+                <button id="btnInstall" class="btn-secondary hidden" style="margin-top:20px;">Instal Aplikasi</button>
             </div>
-            <div class="summary-card">
-              <span class="summary-val" id="statTotalLokasi">0</span>
-              <span class="summary-lbl">Total Lokasi</span>
+        </div>
+
+        <!-- DASHBOARD VIEW -->
+        <div id="view-dashboard" class="view">
+            <header class="app-header">
+                <div>
+                    <h1 class="header-title">Dashboard</h1>
+                    <p class="user-greeting">Halo, <span id="staffName">Staff</span></p>
+                </div>
+                <button id="btnLogout" class="btn-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                </button>
+            </header>
+            <div class="menu-grid">
+                <div class="menu-card" onclick="navigate('so')">
+                    <div class="icon-box blue"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></div>
+                    <h3>Menu SO</h3>
+                </div>
+                <div class="menu-card" onclick="navigate('verify')">
+                    <div class="icon-box green"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div>
+                    <h3>Verifikasi</h3>
+                </div>
+                <div class="menu-card" onclick="navigate('history')">
+                    <div class="icon-box orange"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+                    <h3>History</h3>
+                </div>
+                <div class="menu-card" onclick="navigate('report')">
+                    <div class="icon-box purple"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div>
+                    <h3>Report</h3>
+                </div>
             </div>
-          </div>
+            
+            <div id="adminPanel" class="hidden">
+                <h3 class="section-title">Menu Admin</h3>
+                <div class="menu-grid">
+                    <div class="menu-card outline"><h3 style="font-size: 14px;">User Management</h3></div>
+                    <div class="menu-card outline"><h3 style="font-size: 14px;">Approval Lokasi</h3></div>
+                </div>
+            </div>
         </div>
 
-        <div class="ios-card">
-          <h3 class="card-title mb-12">Tambah User Baru</h3>
-          <form id="formAddUser">
-            <input type="text" id="newUsername" class="ios-input mb-8" placeholder="Username Baru" required>
-            <input type="password" id="newPassword" class="ios-input mb-8" placeholder="Password" required>
-            <select id="newRole" class="ios-input mb-12">
-              <option value="STAFF">STAFF</option>
-              <option value="ADMIN">ADMIN</option>
-            </select>
-            <button type="submit" class="ios-btn primary-btn">Buat User</button>
-          </form>
+        <!-- MENU SO VIEW -->
+        <div id="view-so" class="view">
+            <header class="app-header sub-header">
+                <button class="btn-icon" onclick="navigate('dashboard')">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </button>
+                <h1 class="header-title">Input SO</h1>
+                <div style="width:24px;"></div>
+            </header>
+            
+            <div class="form-container">
+                <!-- Location Panel -->
+                <div class="card-glass p-15">
+                    <label>Lokasi SO</label>
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="soLocation" placeholder="Scan/Input Lokasi" required>
+                        <button class="btn-primary" style="width:auto; padding:0 15px;">Set</button>
+                    </div>
+                </div>
+
+                <!-- Scanner Module -->
+                <div class="card-glass mt-15 p-15">
+                    <div id="reader" style="width:100%; border-radius:12px; overflow:hidden;"></div>
+                    <div class="action-row mt-15">
+                        <button id="btnScan" class="btn-primary" style="flex:1;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:5px;"><path d="M4 7V4h3M20 7V4h-3M4 17v3h3M20 17v3h-3M9 12h6"></path></svg> Scan Barcode
+                        </button>
+                        <button id="btnTorch" class="btn-secondary" style="width:auto; padding:10px;">
+                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        </button>
+                    </div>
+                    <div style="text-align:center; margin-top:10px;">
+                        <span style="font-size:12px; color:#8e8e93;">Manual Input:</span>
+                        <input type="text" id="manualBarcode" placeholder="Ketik Kode UPC / SKU" style="margin-top:5px;">
+                    </div>
+                </div>
+
+                <!-- Product Result Info -->
+                <div id="productInfo" class="card-glass mt-15 p-15 hidden">
+                    <h3 id="resDesc" style="margin-bottom:5px;">Nama Produk</h3>
+                    <p style="color:#8e8e93; font-size:13px;">UPC: <span id="resUpc"></span> | Dept: <span id="resDept"></span></p>
+                    <div class="qty-sys-badge">Qty System: <span id="resQtySys">0</span></div>
+                    
+                    <div class="input-group mt-15">
+                        <label>Qty SO Aktik (Fisik) *</label>
+                        <input type="number" id="inputQty" placeholder="Masukkan Qty" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Keterangan (Opsional)</label>
+                        <input type="text" id="inputKet" placeholder="Catatan tambahan">
+                    </div>
+                    
+                    <button class="btn-primary mt-15" id="btnSaveSO">Simpan Data</button>
+                </div>
+            </div>
         </div>
-      </section>
-    </main>
-
-    <!-- BOTTOM NAVIGATION BAR -->
-    <nav class="ios-bottom-nav">
-      <button class="nav-item active" data-tab="tabSO">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-        <span>Opname</span>
-      </button>
-      <button class="nav-item" data-tab="tabVerifikasi">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-        <span>Verifikasi</span>
-      </button>
-      <button class="nav-item" data-tab="tabHistory">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-        <span>History</span>
-      </button>
-      <button class="nav-item admin-only hidden" data-tab="tabAdmin">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-        <span>Admin</span>
-      </button>
-    </nav>
-  </div>
-
-  <!-- SCANNER MODAL -->
-  <div id="scannerModal" class="modal-overlay hidden">
-    <div class="scanner-modal-body">
-      <div class="scanner-header">
-        <span id="scannerModalTitle" class="scanner-title">Arahkan Kamera ke Barcode</span>
-        <button id="btnCloseScanner" type="button" class="icon-btn-round">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </div>
-      <div class="scanner-viewport-wrapper">
-        <div id="cameraViewport"></div>
-        <svg class="scanner-crosshair" viewBox="0 0 240 240" fill="none">
-          <path d="M20 60V40a20 20 0 0120-20h20M180 20h20a20 20 0 0120 20v20M220 180v20a20 20 0 01-20 20h-20M60 220H40a20 20 0 01-20-20v-20" stroke="#007aff" stroke-width="6" stroke-linecap="round"/>
-        </svg>
-      </div>
+        
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <p>Memproses...</p>
+        </div>
     </div>
-  </div>
-
-  <!-- MODAL TAMBAH LOKASI -->
-  <div id="addLocationModal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <h3 class="modal-title">Tambah Lokasi Baru</h3>
-      <p class="modal-subtitle">Masukkan kode atau nama rak/lokasi baru.</p>
-      <input type="text" id="newLocationInput" class="ios-input mb-12" placeholder="Contoh: RAK-A12" autocomplete="off">
-      <div class="modal-actions">
-        <button id="btnCancelAddLocation" type="button" class="ios-btn gray-btn flex-1">Batal</button>
-        <button id="btnSaveNewLocation" type="button" class="ios-btn primary-btn flex-1">Simpan</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="app.js"></script>
+    
+    <script src="js/db.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
