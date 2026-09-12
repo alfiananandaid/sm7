@@ -1,6 +1,6 @@
 // OBFUSCATION URL API GAS (Base64) - Ganti YWFh dengan base64 URL Web App Anda
 // Contoh: btoa("[https://script.google.com/macros/s/AKfy.../exec](https://script.google.com/macros/s/AKfy.../exec)")
-const ENC_API = "aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9YWFhYWFg="; // MASUKKAN BASE64 DISINI
+const ENC_API = "https://script.google.com/macros/s/AKfycbzI8zxVGcDTpS5wvW0Y3IkQa5UQyj-Gllp7KIQtFOeEJQ7LhMXvpfHXm7UYn6lEW142Fw/exec"; // MASUKKAN BASE64 DISINI
 const getApiUrl = () => atob(ENC_API);
 
 let html5QrcodeScanner;
